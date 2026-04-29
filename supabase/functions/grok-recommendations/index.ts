@@ -7,13 +7,14 @@ const corsHeaders = {
 };
 
 interface RecommendationRequest {
-  query: string;
+  query?: string;
+  messages?: GrokMessage[];
   occasion?: string;
   budget?: number;
 }
 
 interface GrokMessage {
-  role: "user" | "assistant";
+  role: "system" | "user" | "assistant";
   content: string;
 }
 
@@ -29,7 +30,7 @@ async function callGrokAPI(messages: GrokMessage[], apiKey: string): Promise<str
         model: "grok-beta",
         messages: messages,
         temperature: 0.7,
-        max_tokens: 500,
+        max_tokens: 600,
       }),
     });
 
@@ -46,40 +47,37 @@ async function callGrokAPI(messages: GrokMessage[], apiKey: string): Promise<str
   }
 }
 
-function buildRecommendationPrompt(query: string, occasion?: string, budget?: number): string {
-  let prompt = `You are a luxury gift recommendation expert specializing in Indian artisanal and handcrafted gifts.
-Based on the customer's request, provide personalized gift recommendations.
+function getSystemPrompt(): string {
+  return `You are "GiftNest AI", a conversational luxury gift assistant specializing in Indian artisanal and handcrafted gifts.
 
-Customer Request: ${query}`;
+Your Goal:
+1. Be helpful, warm, and conversational.
+2. If the user's request is vague (e.g., "I need a gift"), ask clarifying questions about:
+   - The Occasion (Birthday, Diwali, Wedding, etc.)
+   - The Recipient (Interests, relationship to user)
+   - The Budget (in INR)
+3. Provide 2-3 specific recommendations from our categories when you have enough information.
+4. Keep responses concise but premium.
 
-  if (occasion) {
-    prompt += `\nOccasion: ${occasion}`;
-  }
-  if (budget) {
-    prompt += `\nBudget: ₹${budget}`;
-  }
+GiftNest Categories:
+- Home Decor (Pottery, Vases)
+- Jewelry & Boxes (Wooden mahogany boxes)
+- Candles & Fragrances (Soy wax, Lavender)
+- Textiles (Silk scarves, Block prints)
+- Gift Hampers (Curated luxury sets)
+- Art & Figurines (Brass Ganesha, traditional pieces)
+- Stationery (Leather journals)
+- Wellness (Diffusers, Aromatherapy)
 
-  prompt += `
+Sample Products to mention:
+- Carved Mahogany Jewelry Box (₹2,499)
+- Lavender Soy Wax Candle (₹899)
+- Block Print Silk Scarf (₹1,799)
+- Blue Pottery Vase (₹1,299)
+- Festive Luxury Gift Hamper (₹4,999)
+- Brass Ganesha Figurine (₹1,899)
 
-Available Gift Categories:
-- Home Decor (pottery, vases, decorative pieces)
-- Jewelry & Boxes (wooden jewelry boxes, ornate storage)
-- Candles & Fragrances (soy wax, aromatherapy)
-- Textiles (silk scarves, block prints)
-- Gift Hampers (curated luxury sets)
-- Art & Figurines (brass, traditional pieces)
-- Stationery (leather journals, notebooks)
-- Wellness (diffusers, aromatherapy sets)
-
-Provide 3-4 specific gift recommendations with:
-1. Product name and category
-2. Price range (in INR)
-3. Why it's perfect for the occasion/person
-4. Key features and appeal
-
-Keep recommendations culturally thoughtful and artisanal in nature. Focus on gifts that tell a story and celebrate Indian craftsmanship.`;
-
-  return prompt;
+Always stay in character as a helpful expert. If you provide recommendations, explain WHY they fit. Always ask if they'd like to see more or refine the budget/occasion.`;
 }
 
 Deno.serve(async (req: Request) => {
@@ -110,11 +108,11 @@ Deno.serve(async (req: Request) => {
     }
 
     const body: RecommendationRequest = await req.json();
-    const { query, occasion, budget } = body;
+    let { query, messages, occasion, budget } = body;
 
-    if (!query) {
+    if (!query && (!messages || messages.length === 0)) {
       return new Response(
-        JSON.stringify({ error: "Query is required" }),
+        JSON.stringify({ error: "Query or messages are required" }),
         {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -122,23 +120,36 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const systemPrompt = buildRecommendationPrompt(query, occasion, budget);
-    const messages: GrokMessage[] = [
+    // Prepare messages for Grok
+    const grokMessages: GrokMessage[] = [
       {
-        role: "user",
-        content: systemPrompt,
+        role: "system",
+        content: getSystemPrompt(),
       },
     ];
 
-    const recommendation = await callGrokAPI(messages, apiKey);
+    if (messages && messages.length > 0) {
+      // Use existing message history
+      grokMessages.push(...messages);
+    } else if (query) {
+      // Fallback for single query
+      let userContent = query;
+      if (occasion) userContent += `\nOccasion: ${occasion}`;
+      if (budget) userContent += `\nBudget: ₹${budget}`;
+      
+      grokMessages.push({
+        role: "user",
+        content: userContent,
+      });
+    }
+
+    const responseText = await callGrokAPI(grokMessages, apiKey);
 
     return new Response(
       JSON.stringify({
         success: true,
-        recommendation: recommendation,
-        query: query,
-        occasion: occasion,
-        budget: budget,
+        recommendation: responseText,
+        query: query || (messages ? messages[messages.length - 1].content : ""),
       }),
       {
         status: 200,

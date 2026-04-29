@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react"
-import { MessageCircle, X, Send, Sparkles, Bot, User, CircleAlert as AlertCircle } from "lucide-react"
+import { MessageCircle, X, Send, Sparkles, Bot, User, CircleAlert as AlertCircle, Mic, MicOff, Volume2, VolumeX } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -16,8 +16,8 @@ type Message = {
 
 const botReplies: Record<string, { text: string; suggestions?: string[] }> = {
   default: {
-    text: "Hi! I'm your AI gift assistant powered by Grok. Tell me about the occasion, the person, or your budget and I'll help you find the perfect gift!",
-    suggestions: ["Gift for mom's birthday", "Diwali gifts under ₹2000", "Wedding gift ideas", "Corporate gifts"],
+    text: "Hello! I'm GiftNest AI, your intelligent assistant. I'm here to help you with gift ideas, answer your questions about Indian artisanal crafts, or just chat. What's on your mind?",
+    suggestions: ["Find a gift", "Tell me about Indian crafts", "How are you?", "Help me with something"],
   },
 }
 
@@ -34,7 +34,57 @@ export function AIChatbot() {
   ])
   const [input, setInput] = useState("")
   const [typing, setTyping] = useState(false)
+  const [isListening, setIsListening] = useState(false)
+  const [voiceMode, setVoiceMode] = useState(true)
   const bottomRef = useRef<HTMLDivElement>(null)
+
+  const toggleVoiceMode = () => {
+    setVoiceMode(!voiceMode)
+    if (voiceMode) {
+      window.speechSynthesis.cancel()
+    }
+  }
+
+  const speakText = (text: string) => {
+    if (!voiceMode || !window.speechSynthesis) return
+    window.speechSynthesis.cancel() // Stop any current speech
+    
+    // Remove markdown formatting before speaking
+    const cleanText = text.replace(/\*\*/g, '').replace(/\*/g, '').replace(/#/g, '')
+    const utterance = new SpeechSynthesisUtterance(cleanText)
+    utterance.rate = 1.05
+    utterance.pitch = 1
+    utterance.lang = 'en-IN'
+    window.speechSynthesis.speak(utterance)
+  }
+
+  const toggleListening = () => {
+    if (isListening) {
+      setIsListening(false)
+      return
+    }
+
+    // @ts-ignore
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Your browser does not support voice input.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-IN';
+    recognition.interimResults = false;
+    
+    recognition.onstart = () => setIsListening(true);
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setInput(prev => prev + (prev ? " " : "") + transcript);
+    };
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
+    
+    recognition.start();
+  }
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -42,35 +92,55 @@ export function AIChatbot() {
 
   const sendMessage = async (text: string) => {
     if (!text.trim()) return
+    
     const userMsg: Message = { id: Date.now().toString(), role: "user", text }
     setMessages(prev => [...prev, userMsg])
     setInput("")
     setTyping(true)
 
     try {
-      const grokResponse = await getRecommendations({ query: text })
+      // Create message history for the AI, skipping the initial greeting
+      const history = [...messages, userMsg]
+        .filter(m => m.id !== "0")
+        .map(m => ({
+          role: (m.role === "user" ? "user" : "assistant") as "user" | "assistant",
+          content: m.text
+        }))
 
-      if (grokResponse) {
-        const botMsg: Message = {
-          id: (Date.now() + 1).toString(),
-          role: "bot",
-          text: grokResponse,
-          isGrokPowered: true,
-          suggestions: ["Browse these", "View catalog", "Ask more"],
+      const botMsgId = (Date.now() + 1).toString()
+      setMessages(prev => [
+        ...prev,
+        { id: botMsgId, role: "bot", text: "", isGrokPowered: true }
+      ])
+      
+      setTyping(false) // We show the empty message immediately, loading takes over
+
+      const aiResponse = await getRecommendations({ 
+        messages: history,
+        onChunk: (chunk) => {
+          setMessages(prev => prev.map(m => 
+            m.id === botMsgId ? { ...m, text: m.text + chunk } : m
+          ))
         }
-        setMessages(prev => [...prev, botMsg])
+      })
+
+      if (aiResponse) {
+        setMessages(prev => prev.map(m => 
+          m.id === botMsgId ? { ...m, suggestions: ["Browse catalog", "Gift for Diwali", "Budget ₹2000"] } : m
+        ))
+        speakText(aiResponse)
       } else {
         const fallbackMsg: Message = {
-          id: (Date.now() + 1).toString(),
+          id: (Date.now() + 2).toString(),
           role: "bot",
-          text: "I'd love to help! Please describe the occasion, recipient, or budget in more detail and I'll provide personalized recommendations.",
-          suggestions: ["Birthday gifts", "Diwali picks", "Corporate gifts"],
+          text: "I'd love to help! Could you tell me more about the recipient or the occasion? Also, let me know if you have a budget in mind.",
+          suggestions: ["Birthday gift", "Wedding gift", "Home decor"],
         }
         setMessages(prev => [...prev, fallbackMsg])
       }
     } catch (err) {
       const errorMsg: Message = {
-        id: (Date.now() + 1).toString(),
+        id: (Date.now() + 2).toString(),
         role: "bot",
         text: "I encountered an error processing your request. Please try again or browse our catalog directly.",
         suggestions: ["View catalog", "Browse categories"],
@@ -91,12 +161,17 @@ export function AIChatbot() {
               <Sparkles className="size-4" />
               <div>
                 <p className="font-semibold text-sm">AI Gift Assistant</p>
-                <p className="text-[10px] opacity-80">Powered by Grok + GiftNest</p>
+                <p className="text-[10px] opacity-80">Powered by GiftNest AI</p>
               </div>
             </div>
-            <Button variant="ghost" size="icon-xs" onClick={() => setOpen(false)} className="hover:bg-primary-foreground/10 text-primary-foreground">
-              <X className="size-4" />
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="icon-xs" onClick={toggleVoiceMode} className="hover:bg-primary-foreground/10 text-primary-foreground" title={voiceMode ? "Mute Voice" : "Enable Voice"}>
+                {voiceMode ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
+              </Button>
+              <Button variant="ghost" size="icon-xs" onClick={() => setOpen(false)} className="hover:bg-primary-foreground/10 text-primary-foreground">
+                <X className="size-4" />
+              </Button>
+            </div>
           </div>
 
           {/* Messages */}
@@ -117,10 +192,21 @@ export function AIChatbot() {
                         ? "bg-muted text-foreground rounded-tl-sm"
                         : "bg-primary text-primary-foreground rounded-tr-sm"
                     )}>
-                      {msg.text}
+                      <div className="space-y-1">
+                        {msg.text.split('\n').map((line, i) => (
+                          <div key={i} className="min-h-[1.25rem]">
+                            {line.split(/(\*\*.*?\*\*)/g).map((part, j) => {
+                              if (part.startsWith('**') && part.endsWith('**')) {
+                                return <strong key={j} className="font-semibold">{part.slice(2, -2)}</strong>
+                              }
+                              return <span key={j}>{part}</span>
+                            })}
+                          </div>
+                        ))}
+                      </div>
                       {msg.isGrokPowered && (
-                        <div className="text-[10px] opacity-70 mt-1 flex items-center gap-1">
-                          <Sparkles className="size-2.5" /> AI-powered by Grok
+                        <div className="text-[10px] opacity-70 mt-2 flex items-center gap-1 border-t border-border/50 pt-1">
+                          <Sparkles className="size-2.5" /> AI-powered
                         </div>
                       )}
                     </div>
@@ -162,16 +248,24 @@ export function AIChatbot() {
             </div>
           </ScrollArea>
 
-          {/* Input */}
           <div className="border-t p-3 flex gap-2">
             <Input
-              placeholder="Ask me anything..."
+              placeholder={isListening ? "Listening..." : "Ask me anything..."}
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === "Enter" && sendMessage(input)}
-              className="h-8 text-sm"
+              className={cn("h-8 text-sm", isListening && "border-primary ring-1 ring-primary")}
               disabled={loading}
             />
+            <Button 
+              size="icon-sm" 
+              variant={isListening ? "default" : "outline"}
+              onClick={toggleListening} 
+              disabled={loading}
+              className={cn(isListening && "animate-pulse bg-red-500 hover:bg-red-600 text-white border-none")}
+            >
+              {isListening ? <MicOff className="size-3.5" /> : <Mic className="size-3.5" />}
+            </Button>
             <Button size="icon-sm" onClick={() => sendMessage(input)} disabled={!input.trim() || loading}>
               <Send className="size-3.5" />
             </Button>
@@ -180,7 +274,7 @@ export function AIChatbot() {
           {/* Info Banner */}
           <div className="border-t bg-muted/50 px-3 py-2 text-[10px] text-muted-foreground flex items-start gap-1.5">
             <AlertCircle className="size-3 shrink-0 mt-0.5" />
-            <span>Powered by Grok AI for intelligent gift recommendations</span>
+            <span>Powered by intelligent AI for personalized gift recommendations</span>
           </div>
         </div>
       )}
@@ -188,11 +282,11 @@ export function AIChatbot() {
       {/* Toggle Button */}
       <Button
         size="lg"
-        className="rounded-full shadow-lg gap-2 h-12 px-4"
+        className="rounded-full shadow-xl gap-2 h-14 px-6 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-600 hover:via-purple-600 hover:to-pink-600 text-white border-none transition-all duration-300 hover:scale-105 animate-in fade-in slide-in-from-bottom-4"
         onClick={() => setOpen(o => !o)}
       >
-        {open ? <X className="size-4" /> : <MessageCircle className="size-4" />}
-        {!open && <span className="text-sm font-medium">Ask AI</span>}
+        {open ? <X className="size-5" /> : <Sparkles className="size-5 animate-pulse" />}
+        {!open && <span className="text-sm font-semibold tracking-wide">Ask AI</span>}
       </Button>
     </div>
   )

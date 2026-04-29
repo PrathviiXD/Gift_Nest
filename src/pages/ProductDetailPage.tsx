@@ -2,14 +2,16 @@ import { useState } from "react"
 import { useParams, Link, useNavigate } from "react-router-dom"
 import {
   ShoppingCart, Heart, Star, Truck, Shield, RotateCcw,
-  ChevronRight, Plus, Minus, Share2, Sparkles, Box, Eye
+  ChevronRight, Plus, Minus, Share2, Sparkles, Box, Eye, Info
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { ProductCard } from "@/components/ProductCard"
+import { PriceHistoryChart } from "@/components/PriceHistoryChart"
 import { getProductById, products, formatPrice } from "@/data/products"
 import { useCart } from "@/contexts/CartContext"
 
@@ -62,13 +64,13 @@ export default function ProductDetailPage() {
         <div className="space-y-3">
           <div className="relative aspect-square rounded-2xl overflow-hidden border bg-muted">
             {arMode ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/90 text-white">
-                <Box className="size-16 animate-pulse" />
-                <p className="text-lg font-semibold">AR Preview Mode</p>
-                <p className="text-sm text-gray-400 text-center px-8">
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/80 backdrop-blur-sm text-white z-10 transition-all animate-in fade-in zoom-in-95 duration-300">
+                <Box className="size-16 animate-bounce text-indigo-400" />
+                <p className="text-xl font-bold tracking-tight bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">AR Preview Mode</p>
+                <p className="text-sm text-gray-300 text-center px-8 max-w-xs">
                   Point your camera at a flat surface to see this product in your space.
                 </p>
-                <Button variant="outline" onClick={() => setArMode(false)}>Exit AR</Button>
+                <Button variant="outline" className="mt-2 border-white/20 hover:bg-white/10" onClick={() => setArMode(false)}>Exit AR</Button>
               </div>
             ) : (
               <>
@@ -86,6 +88,26 @@ export default function ProductDetailPage() {
                     </Badge>
                   )}
                 </div>
+                
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="secondary"
+                      size="icon"
+                      className="absolute top-3 right-3 rounded-full size-8 bg-background/80 hover:bg-background/100 backdrop-blur"
+                      title="Price History"
+                    >
+                      <Info className="size-4" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl border-border bg-background">
+                    <DialogHeader>
+                      <DialogTitle>Price History</DialogTitle>
+                    </DialogHeader>
+                    <PriceHistoryChart productId={product.id} currentPrice={product.price} originalPrice={product.originalPrice} />
+                  </DialogContent>
+                </Dialog>
+
                 <Button
                   variant="secondary"
                   size="sm"
@@ -233,8 +255,8 @@ export default function ProductDetailPage() {
           </div>
 
           {/* AI Banner */}
-          <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
-            <Sparkles className="size-4 shrink-0" />
+          <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 transition-colors hover:bg-amber-100 dark:hover:bg-amber-950/40">
+            <Sparkles className="size-4 shrink-0 animate-pulse text-amber-500" />
             <span>Our AI recommends this for <strong>birthdays, anniversaries</strong> and special occasions.</span>
           </div>
         </div>
@@ -246,6 +268,7 @@ export default function ProductDetailPage() {
           <TabsTrigger value="description">Description</TabsTrigger>
           <TabsTrigger value="reviews">Reviews ({product.reviewCount})</TabsTrigger>
           <TabsTrigger value="shipping">Shipping</TabsTrigger>
+          <TabsTrigger value="price-history">Price History</TabsTrigger>
         </TabsList>
         <TabsContent value="description" className="mt-4">
           <div className="prose prose-sm max-w-none text-muted-foreground">
@@ -291,6 +314,9 @@ export default function ProductDetailPage() {
             <p>• Same-day delivery available in Mumbai, Delhi, Bangalore</p>
             <p>• Complimentary gift wrapping on all orders</p>
           </div>
+        </TabsContent>
+        <TabsContent value="price-history" className="mt-4">
+          <PriceHistoryChart productId={product.id} currentPrice={product.price} originalPrice={product.originalPrice} />
         </TabsContent>
       </Tabs>
 

@@ -25,7 +25,7 @@ Before the app goes live, add the Grok API key to Supabase:
 **Method 2: Via Code/Script**
 ```bash
 # If using supabase CLI
-supabase secrets set GROK_API_KEY=7e8626b86ae804402e6fb495d05f47e8f5fb97f4
+supabase secrets set GROK_API_KEY=your_api_key_here
 
 # Then redeploy the edge function
 supabase functions deploy grok-recommendations

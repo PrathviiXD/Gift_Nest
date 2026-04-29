@@ -4,6 +4,7 @@ type User = {
   id: string
   name: string
   email: string
+  phone?: string
   avatar?: string
 }
 
@@ -12,6 +13,8 @@ type AuthContextType = {
   isAuthenticated: boolean
   login: (email: string, password: string) => Promise<boolean>
   register: (name: string, email: string, password: string) => Promise<boolean>
+  sendOtp: (phone: string) => Promise<boolean>
+  verifyOtp: (phone: string, otp: string) => Promise<boolean>
   logout: () => void
 }
 
@@ -35,8 +38,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(() => setUser(null), [])
 
+  const sendOtp = useCallback(async (phone: string) => {
+    // Simulate API call for sending OTP
+    await new Promise(r => setTimeout(r, 800))
+    return true
+  }, [])
+
+  const verifyOtp = useCallback(async (phone: string, otp: string) => {
+    await new Promise(r => setTimeout(r, 800))
+    if (otp !== "123456") throw new Error("Invalid OTP")
+    setUser({ id: "u3", name: "User", email: `${phone}@mobile.user`, phone })
+    return true
+  }, [])
+
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, register, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, register, sendOtp, verifyOtp, logout }}>
       {children}
     </AuthContext.Provider>
   )

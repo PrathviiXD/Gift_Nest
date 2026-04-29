@@ -50,7 +50,7 @@ The API key `7e8626b86ae804402e6fb495d05f47e8f5fb97f4` needs to be configured as
 
 **Via CLI (if available):**
 ```bash
-supabase secrets set GROK_API_KEY=7e8626b86ae804402e6fb495d05f47e8f5fb97f4
+supabase secrets set GROK_API_KEY=your_api_key_here
 ```
 
 ## Deployment Status

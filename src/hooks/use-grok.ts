@@ -1,18 +1,11 @@
 import { useState, useCallback } from "react"
 
-interface GrokRecommendation {
-  success: boolean
-  recommendation?: string
-  error?: string
-  query: string
-  occasion?: string
-  budget?: number
-}
+// The API key provided by the user in the previous conversation.
+const API_KEY = import.meta.env.VITE_OPENAI_API_KEY || ""
 
 interface UseGrokOptions {
-  query: string
-  occasion?: string
-  budget?: number
+  messages?: { role: "user" | "assistant" | "system"; content: string }[]
+  onChunk?: (chunk: string) => void
 }
 
 export function useGrok() {
@@ -25,45 +18,80 @@ export function useGrok() {
       setError(null)
 
       try {
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-        const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+        const systemPrompt = `You are a highly intelligent, real AI assistant. You must communicate like a human, natively and naturally. NO FLUFF. NO ROBOTIC RESPONSES. Do not use phrases like "I am an AI assistant" or "How can I help you today?". Be direct, helpful, and highly conversational. Keep responses concise and practical. 
 
-        if (!supabaseUrl || !anonKey) {
-          throw new Error("Supabase configuration missing")
-        }
+When giving recommendations, provide exact product details, prices in INR, and why they fit. You are integrated into GiftNest, a premium platform.
 
-        const functionUrl = `${supabaseUrl}/functions/v1/grok-recommendations`
+GiftNest sells: Home Decor (pottery, vases), Jewelry & Boxes (mahogany), Candles & Fragrances (soy, lavender), Textiles (silk scarves, block prints), Gift Hampers, Art & Figurines (brass Ganesha), Stationery (leather journals), Wellness (diffusers, aromatherapy).
 
-        const response = await fetch(functionUrl, {
+Talk like a real human consulting a friend. Answer anything the user asks, even beyond gifts, but stay grounded.`
+
+        const messages = [
+          { role: "system", content: systemPrompt },
+          ...(options.messages || [])
+        ]
+
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${anonKey}`,
-            "X-Client-Info": "giftnest-web",
+            Authorization: `Bearer ${API_KEY}`,
           },
           body: JSON.stringify({
-            query: options.query,
-            occasion: options.occasion,
-            budget: options.budget,
+            model: "gpt-4o-mini",
+            messages: messages,
+            temperature: 0.7,
+            max_tokens: 800,
+            stream: !!options.onChunk,
           }),
         })
 
         if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || `HTTP ${response.status}`)
+          const errorText = await response.text()
+          throw new Error(`API Error: ${response.status} - ${errorText}`)
         }
 
-        const data: GrokRecommendation = await response.json()
+        if (options.onChunk && response.body) {
+          const reader = response.body.getReader()
+          const decoder = new TextDecoder("utf-8")
+          let done = false
+          let fullText = ""
 
-        if (!data.success) {
-          throw new Error(data.error || "Failed to get recommendations")
+          while (!done) {
+            const { value, done: readerDone } = await reader.read()
+            done = readerDone
+            if (value) {
+              const chunk = decoder.decode(value, { stream: true })
+              const lines = chunk.split('\n').filter(line => line.trim() !== '')
+              for (const line of lines) {
+                if (line === 'data: [DONE]') {
+                  done = true;
+                  break;
+                }
+                if (line.startsWith('data: ')) {
+                  try {
+                    const data = JSON.parse(line.slice(6))
+                    const content = data.choices[0]?.delta?.content
+                    if (content) {
+                      fullText += content
+                      options.onChunk(content)
+                    }
+                  } catch (e) {
+                    // Ignore parse errors on incomplete chunks
+                  }
+                }
+              }
+            }
+          }
+          return fullText
+        } else {
+          const data = await response.json()
+          return data.choices[0].message.content
         }
-
-        return data.recommendation || null
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : "Unknown error"
         setError(errorMsg)
-        console.error("Grok recommendation error:", err)
+        console.error("AI integration error:", err)
         return null
       } finally {
         setLoading(false)

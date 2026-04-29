@@ -18,6 +18,7 @@ export type Product = {
   material?: string
   weight?: string
   dimensions?: string
+  priceHistory?: { date: string; price: number }[]
 }
 
 export type Category = {

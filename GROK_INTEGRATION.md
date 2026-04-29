@@ -78,7 +78,7 @@ Enhanced chatbot component featuring:
 The edge function requires the Grok API key to be configured as a secret:
 
 ```bash
-GROK_API_KEY=7e8626b86ae804402e6fb495d05f47e8f5fb97f4
+GROK_API_KEY=your_api_key_here
 ```
 
 This secret is automatically managed by Supabase and is NOT exposed to the frontend.
