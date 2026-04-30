@@ -14,6 +14,7 @@ import {
   categories, featuredProducts, bestsellerProducts, newArrivals,
   products
 } from "@/data/products"
+import kurtiGirlImg from "@/assets/kurti-girl.webp"
 
 const occasions = ["Birthday", "Anniversary", "Diwali", "Wedding", "Housewarming", "Corporate"]
 
@@ -93,8 +94,8 @@ export default function HomePage() {
                       key={o}
                       onClick={() => { setSelectedOccasion(o); setAiQuery(o) }}
                       className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${selectedOccasion === o
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-muted hover:bg-accent border-transparent"
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-muted hover:bg-accent border-transparent"
                         }`}
                     >
                       {o}
@@ -120,7 +121,7 @@ export default function HomePage() {
             <div className="relative hidden md:block">
               <div className="relative rounded-2xl overflow-hidden shadow-2xl">
                 <img
-                  src="/india-women-wear-partywear-kurti-260nw-2632746755.webp"
+                  src={kurtiGirlImg}
                   alt="Gift collection"
                   className="w-full object-cover aspect-[4/3]"
                 />
