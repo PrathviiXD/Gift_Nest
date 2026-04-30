@@ -27,11 +27,20 @@ export default function HomePage() {
   const navigate = useNavigate()
   const [aiQuery, setAiQuery] = useState("")
   const [selectedOccasion, setSelectedOccasion] = useState("")
+  const [searchQuery, setSearchQuery] = useState("")
 
   const handleAiSearch = (e: React.FormEvent) => {
     e.preventDefault()
     const q = aiQuery || selectedOccasion
     if (q) navigate(`/catalog?q=${encodeURIComponent(q)}`)
+  }
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (searchQuery.trim()) {
+      navigate(`/catalog?q=${encodeURIComponent(searchQuery.trim())}`)
+      setSearchQuery("")
+    }
   }
 
   return (
@@ -83,11 +92,10 @@ export default function HomePage() {
                     <button
                       key={o}
                       onClick={() => { setSelectedOccasion(o); setAiQuery(o) }}
-                      className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
-                        selectedOccasion === o
+                      className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${selectedOccasion === o
                           ? "bg-primary text-primary-foreground border-primary"
                           : "bg-muted hover:bg-accent border-transparent"
-                      }`}
+                        }`}
                     >
                       {o}
                     </button>
@@ -112,7 +120,7 @@ export default function HomePage() {
             <div className="relative hidden md:block">
               <div className="relative rounded-2xl overflow-hidden shadow-2xl">
                 <img
-                  src="/hero-banner.webp"
+                  src="/india-women-wear-partywear-kurti-260nw-2632746755.webp"
                   alt="Gift collection"
                   className="w-full object-cover aspect-[4/3]"
                 />
@@ -187,9 +195,26 @@ export default function HomePage() {
       {/* Featured Products Tabs */}
       <section className="container mx-auto px-4 py-8">
         <Tabs defaultValue="featured">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="scroll-m-20 text-2xl font-semibold tracking-tight">Our Collection</h2>
-            <TabsList>
+          <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+            <h2 className="scroll-m-20 text-2xl font-semibold tracking-tight whitespace-nowrap">Our Collection</h2>
+
+            {/* Search */}
+            <form onSubmit={handleSearch} className="flex-1 max-w-md w-full md:mx-4 order-3 md:order-none">
+              <div className="relative w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search gifts, occasions..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="pl-9 pr-10"
+                />
+                <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <Mic className="size-4 text-muted-foreground hover:text-foreground transition-colors" />
+                </button>
+              </div>
+            </form>
+
+            <TabsList className="order-2 md:order-none w-full md:w-auto overflow-x-auto justify-start md:justify-center flex-nowrap">
               <TabsTrigger value="featured">Featured</TabsTrigger>
               <TabsTrigger value="bestseller">Bestsellers</TabsTrigger>
               <TabsTrigger value="new">New Arrivals</TabsTrigger>
